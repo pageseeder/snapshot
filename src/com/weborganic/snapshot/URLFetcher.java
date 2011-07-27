@@ -13,7 +13,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * Retrieves the page from the Website.  
+ * Retrieves the page from the Website and its associated resources.
  * 
  * @author Christophe Lauret
  * @version 26 July 2011
@@ -26,9 +26,9 @@ public final class URLFetcher {
   private final URL _url;
 
   /**
-   * Stylesheets and scripts.
+   * Stylesheets, scripts, images and regular links.
    */
-  private final static Pattern LINKS = Pattern.compile("(\\<link[^>]*\\>)|(\\<script[^>]*\\>)");
+  private final static Pattern LINKS = Pattern.compile("(\\<link [^>]*\\>)|(\\<script [^>]*\\>|(\\<img [^>]*\\>|(\\<a [^>]*\\>)");
 
   /**
    * Stylesheets and scripts.
@@ -40,22 +40,29 @@ public final class URLFetcher {
    * 
    * @param url The URL of the page
    * 
-   * @throws MalformedURLException
+   * @throws MalformedURLException If the URL is not valid.
    */
   public URLFetcher(String url) throws MalformedURLException {
     this._url = new URL(url);
   }
 
-  public void retrieve(Config spec) throws IOException {
+  /**
+   * Retrieves resource corresponding to this URL and other associated resources (links, images, etc...)
+   * 
+   * @param config The snapshot configuration.
+   * 
+   * @throws IOException In case of an unrecoverable and unexpected I/O or network error.
+   */
+  public void retrieve(Config config) throws IOException {
     // Create the file
     String path = this._url.getPath();
-    File target = new File(spec.directory(), path);
+    File file = new File(config.directory(), path);
     if (path.indexOf('.') > 0) {
-      target.getParentFile().mkdirs();
+      file.getParentFile().mkdirs();
     }
 
     // No need to process twice
-    if (target.exists()) {
+    if (file.exists()) {
       System.out.println("Skipping "+this._url);
     }
 
@@ -63,7 +70,7 @@ public final class URLFetcher {
     System.out.print("Fetching "+this._url);
     HttpURLConnection connection = (HttpURLConnection)this._url.openConnection();
     connection.setRequestMethod("GET");
-    connection.setRequestProperty("User-Agent", "BerliozSnapshot/1.0");
+    connection.setRequestProperty("User-Agent", "WeborganicSnapshot/1.0");
     connection.connect();
 
     // Grab the metadata
@@ -91,20 +98,20 @@ public final class URLFetcher {
 
       // Parse HTML and fetch scripts and CSS
       if ("text/html".equals(mediaType)) {
-        content = processHTML(content, spec, path);
+        content = processHTML(content, config, path);
       } else if ("text/css".equals(mediaType)) {
-        content = processCSS(content, spec, path);
+        content = processCSS(content, config, path);
       }
 
       // Output to the file
-      FileOutputStream fos = new FileOutputStream(target);
-      OutputStreamWriter out = new OutputStreamWriter(fos, spec.encoding());
+      FileOutputStream fos = new FileOutputStream(file);
+      OutputStreamWriter out = new OutputStreamWriter(fos, config.encoding());
       IOUtils.copy(new StringReader(content), out);
       out.close();
 
     // Binary content
     } else {
-      FileOutputStream fos = new FileOutputStream(target);
+      FileOutputStream fos = new FileOutputStream(file);
       IOUtils.copy(in, fos);
       connection.disconnect();
       fos.close();
@@ -113,19 +120,44 @@ public final class URLFetcher {
   }
 
   /**
-   * Process HTML content
+   * Retrieves the specified URL for the given config.
    * 
-   * @param content
-   * @param spec
-   * @param origin
-   * @return
-   * @throws IOException
+   * <p>Same as:
+   * <pre>
+   *  URLFetcher linkEnd = new URLFetcher(url);
+   *  linkEnd.retrieve(config);
+   * </pre>
+   * 
+   * @param url    The URL to retrieve.
+   * @param config The SnapShot config.
+   * 
+   * @throws IOException In case of an unrecoverable and unexpected I/O or network error.
    */
-  String processHTML(String content, Config spec, String origin) throws IOException {
+  public static void retrieve(String url, Config config) throws IOException {
+    URLFetcher linkEnd = new URLFetcher(url);
+    linkEnd.retrieve(config);
+  }
+
+  // HTML Processing ==============================================================================
+  
+  /**
+   * Process HTML content.
+   * 
+   * <p>This method rewrites tags and fetches associated resources. 
+   * 
+   * @param content The entire HTML content.
+   * @param config  The snapshot configuration.
+   * @param origin  The path to this HTML file.
+   * 
+   * @return The rewritten content.
+   * 
+   * @throws IOException In case of an unrecoverable and unexpected I/O or network error.
+   */
+  private String processHTML(String content, Config config, String origin) throws IOException {
     StringBuffer html = new StringBuffer();
     Matcher m = LINKS.matcher(content);
     while (m.find()) {
-      String replacement = processLink(m.group(), spec, origin);
+      String replacement = processLink(m.group(), config, origin);
       m.appendReplacement(html, replacement);
     }
     m.appendTail(html);
@@ -133,96 +165,132 @@ public final class URLFetcher {
   }
 
   /**
-   * Process a link 
+   * Process an HTML linked item (image, script, styles, etc...) 
    * 
-   * @param link
-   * @param spec
-   * @param origin
-   * @return
-   * @throws IOException
+   * <p>This method rewrites, but does not follow regular links.
+   * 
+   * @param tag    The complete matching tag (opening element).
+   * @param config The snapshot configuration.
+   * @param origin The path to HTML file.
+   * 
+   * @return The rewritten tag
+   * 
+   * @throws IOException In case of an unrecoverable and unexpected I/O or network error.
    */
-  String processLink(String link, Config spec, String origin) throws IOException {
+  private String processLink(String tag, Config config, String origin) throws IOException {
     StringBuffer html = new StringBuffer();
     Pattern p = Pattern.compile("(src|href)=(\"[^\"]*\"|\'[^\']*\')");
-    Matcher m = p.matcher(link);
+    Matcher m = p.matcher(tag);
     if (m.find()) {
       String type = m.group(1);
       String location = m.group(2);
       location = unquote(location);
+
       if (location.startsWith("/")) {
-        URLFetcher linkEnd = new URLFetcher(spec.baseURL()+location);
-        linkEnd.retrieve(spec);
-        String replacement = type+"=\""+toRelativePath(origin, location)+"\"";
-        m.appendReplacement(html, replacement);
-      } else {
-        // No change
+        // Fetch images, scripts and styles (but do not follow links <a>)
+        if (!tag.startsWith("<a ")) {
+          URLFetcher.retrieve(config.baseURL()+location, config);
+        }
+        // Rewrite the absolute paths
+        m.appendReplacement(html, type+"=\""+toRelativePath(origin, location)+"\"");
+
+      } else if (location.startsWith("http://")
+              || location.startsWith("https://")
+              || location.startsWith("#")) {
+        // Ignore full path and internal links
         m.appendReplacement(html, m.group());
+
+      } else {
+        String parent = origin.indexOf('/') >= 0? origin.substring(0, origin.lastIndexOf('/'))+"/" : "/";
+        // Fetch images, scripts and styles (but do not follow links <a>)
+        if (!tag.startsWith("<a ")) {
+          URLFetcher.retrieve(config.baseURL()+parent+location, config);
+        }
+        // Rewrite relative paths
+        m.appendReplacement(html, type+"=\""+toRelativePath(origin, parent+location)+"\"");
       }
     }
     m.appendTail(html);
     return html.toString();
   }
 
+  // HTML Processing ==============================================================================
+
   /**
-   * Process HTML content
+   * Process CSS content.
    * 
-   * @param content
-   * @param spec
-   * @param origin
-   * @return
-   * @throws IOException
+   * <p>This method will rewrite <code>url()</code> references.
+   * 
+   * @param content The CSS content
+   * @param config  The snapshot configuration.
+   * @param origin  The path to the CSS file.
+   *
+   * @return the updated CSS content.
+   * 
+   * @throws IOException In case of an unrecoverable and unexpected I/O or network error.
    */
-  String processCSS(String content, Config spec, String origin) throws IOException {
-    StringBuffer html = new StringBuffer();
+  String processCSS(String content, Config config, String origin) throws IOException {
+    StringBuffer css = null;
     Matcher m = URLS.matcher(content);
     while (m.find()) {
-      String replacement = processUrl(m.group(), spec, origin);
-      m.appendReplacement(html, replacement);
+      if (css == null) css = new StringBuffer();
+      m.appendReplacement(css, processUrl(m.group(), config, origin));
     }
-    m.appendTail(html);
-    return html.toString();
+    if (css != null) {
+      m.appendTail(css);
+      return css.toString();
+    } else {
+      return content;  
+    }
   }
 
   /**
-   * Process a link 
+   * Process a linked item in a CSS file (most likely an image or another CSS) 
    * 
-   * @param link
-   * @param spec
-   * @param origin
-   * @return
-   * @throws IOException
+   * @param link   The complete matching tag.
+   * @param config The snapshot configuration.
+   * @param origin The path to the CSS file.
+   * 
+   * @return The rewritten link
+   * 
+   * @throws IOException In case of an unrecoverable and unexpected I/O or network error.
    */
-  String processUrl(String link, Config spec, String origin) throws IOException {
-    StringBuffer html = new StringBuffer();
+  String processUrl(String link, Config config, String origin) throws IOException {
+    StringBuffer css = new StringBuffer();
     Pattern p = Pattern.compile("url\\(([^)]*)\\)");
     Matcher m = p.matcher(link);
     if (m.find()) {
       String location = m.group(1);
       location = unquote(location);
+      // Rewrite the absolute paths
       if (location.startsWith("/")) {
-        URLFetcher linkEnd = new URLFetcher(spec.baseURL()+location);
-        linkEnd.retrieve(spec);
-        String replacement = "url("+toRelativePath(origin, location)+")";
-        m.appendReplacement(html, replacement);
-      } else if (location.startsWith("http://") || location.startsWith("https://")) {
-        m.appendReplacement(html, m.group());
+        URLFetcher.retrieve(config.baseURL()+location, config);
+        m.appendReplacement(css, "url("+toRelativePath(origin, location)+")");
+
+      // Ignore full path and internal links
+      } else if (location.startsWith("http://")
+              || location.startsWith("https://")
+              || location.startsWith("#")) {
+        m.appendReplacement(css, m.group());
+
+      // Rewrite relative paths
       } else {
         String parent = origin.indexOf('/') >= 0? origin.substring(0, origin.lastIndexOf('/'))+"/" : "/";
-        URLFetcher linkEnd = new URLFetcher(spec.baseURL()+parent+location);
-        linkEnd.retrieve(spec);
-        String replacement = "url("+toRelativePath(origin, location)+")";
-        m.appendReplacement(html, replacement);
+        URLFetcher.retrieve(config.baseURL()+parent+location, config);
+        m.appendReplacement(css, "url("+toRelativePath(origin, parent+location)+")");
       }
     }
-    m.appendTail(html);
-    return html.toString();
+    m.appendTail(css);
+    return css.toString();
   }
 
   /**
+   * Compute the relative path from the specified origin to the specified target.
    * 
-   * @param origin
-   * @param target
-   * @return
+   * @param origin The path to the origin.
+   * @param target The path to the target.
+   * 
+   * @return the relative path.
    */
   public static String toRelativePath(String origin, String target) {
     if (origin.startsWith("/") && target.startsWith("/")) {
@@ -239,7 +307,7 @@ public final class URLFetcher {
   }
 
   /**
-   * Unquote the string if needed.
+   * Removes the quotes from the string if needed.
    * 
    * @param s The string to unquote 
    * @return the unquoted string
