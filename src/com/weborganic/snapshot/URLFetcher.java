@@ -28,7 +28,7 @@ public final class URLFetcher {
   /**
    * Stylesheets, scripts, images and regular links.
    */
-  private final static Pattern LINKS = Pattern.compile("(\\<link [^>]*\\>)|(\\<script [^>]*\\>|(\\<img [^>]*\\>|(\\<a [^>]*\\>)");
+  private final static Pattern LINKS = Pattern.compile("(\\<link [^>]*\\>)|(\\<script [^>]*\\>)|(\\<img [^>]*\\>)|(\\<a [^>]*\\>)");
 
   /**
    * Stylesheets and scripts.
@@ -109,7 +109,7 @@ public final class URLFetcher {
       IOUtils.copy(new StringReader(content), out);
       out.close();
 
-    // Binary content
+      // Binary content
     } else {
       FileOutputStream fos = new FileOutputStream(file);
       IOUtils.copy(in, fos);
@@ -139,11 +139,11 @@ public final class URLFetcher {
   }
 
   // HTML Processing ==============================================================================
-  
+
   /**
    * Process HTML content.
    * 
-   * <p>This method rewrites tags and fetches associated resources. 
+   * <p>This method rewrites tags and fetches associated resources.
    * 
    * @param content The entire HTML content.
    * @param config  The snapshot configuration.
@@ -165,7 +165,7 @@ public final class URLFetcher {
   }
 
   /**
-   * Process an HTML linked item (image, script, styles, etc...) 
+   * Process an HTML linked item (image, script, styles, etc...)
    * 
    * <p>This method rewrites, but does not follow regular links.
    * 
@@ -195,8 +195,8 @@ public final class URLFetcher {
         m.appendReplacement(html, type+"=\""+toRelativePath(origin, location)+"\"");
 
       } else if (location.startsWith("http://")
-              || location.startsWith("https://")
-              || location.startsWith("#")) {
+          || location.startsWith("https://")
+          || location.startsWith("#")) {
         // Ignore full path and internal links
         m.appendReplacement(html, m.group());
 
@@ -240,12 +240,12 @@ public final class URLFetcher {
       m.appendTail(css);
       return css.toString();
     } else {
-      return content;  
+      return content;
     }
   }
 
   /**
-   * Process a linked item in a CSS file (most likely an image or another CSS) 
+   * Process a linked item in a CSS file (most likely an image or another CSS)
    * 
    * @param link   The complete matching tag.
    * @param config The snapshot configuration.
@@ -267,13 +267,13 @@ public final class URLFetcher {
         URLFetcher.retrieve(config.baseURL()+location, config);
         m.appendReplacement(css, "url("+toRelativePath(origin, location)+")");
 
-      // Ignore full path and internal links
+        // Ignore full path and internal links
       } else if (location.startsWith("http://")
-              || location.startsWith("https://")
-              || location.startsWith("#")) {
+          || location.startsWith("https://")
+          || location.startsWith("#")) {
         m.appendReplacement(css, m.group());
 
-      // Rewrite relative paths
+        // Rewrite relative paths
       } else {
         String parent = origin.indexOf('/') >= 0? origin.substring(0, origin.lastIndexOf('/'))+"/" : "/";
         URLFetcher.retrieve(config.baseURL()+parent+location, config);
@@ -309,7 +309,7 @@ public final class URLFetcher {
   /**
    * Removes the quotes from the string if needed.
    * 
-   * @param s The string to unquote 
+   * @param s The string to unquote
    * @return the unquoted string
    */
   public static String unquote(String s) {
