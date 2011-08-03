@@ -73,6 +73,20 @@ public final class URLFetcher {
     connection.setRequestProperty("User-Agent", "WeborganicSnapshot/1.0");
     connection.connect();
 
+    // Response code
+    int code = connection.getResponseCode();
+    if (code == 404 && isStubbable(file)) {
+      createStub(file, config);    
+    } else {
+      retrieveContent(connection, file, config, path);
+    }
+
+  }
+
+  /**
+   * Retrieves the content from the connection. 
+   */
+  private void retrieveContent(HttpURLConnection connection, File file, Config config, String path) throws IOException {
     // Grab the metadata
     String service = connection.getHeaderField("X-Berlioz-Service");
     String mediaType = connection.getHeaderField("Content-Type");
@@ -116,7 +130,29 @@ public final class URLFetcher {
       connection.disconnect();
       fos.close();
     }
+  }
 
+  /**
+   * Retrieves the content from the connection. 
+   */
+  private void createStub(File file, Config config) throws IOException {
+    String name = file.getName();
+    StringBuilder stub = new StringBuilder();
+    if (name.endsWith(".css")) {
+      stub.append("/**\n");
+      stub.append(" * This is a CSS Stub\n");
+      stub.append(" */\n");
+    } else if (name.endsWith(".js")) {
+      stub.append("/**\n");
+      stub.append(" * This is a JavaScript Stub\n");
+      stub.append(" */\n");
+    }
+
+    // Output to the file
+    FileOutputStream fos = new FileOutputStream(file);
+    OutputStreamWriter out = new OutputStreamWriter(fos, config.encoding());
+    IOUtils.copy(new StringReader(stub.toString()), out);
+    out.close();
   }
 
   /**
@@ -136,6 +172,19 @@ public final class URLFetcher {
   public static void retrieve(String url, Config config) throws IOException {
     URLFetcher linkEnd = new URLFetcher(url);
     linkEnd.retrieve(config);
+  }
+
+  /**
+   * Indicates whether a stub can be created (for example for JavaScript or CSS).
+   * 
+   * @return <code>true</code> if it can;
+   *         <code>false</code> otherwise.
+   */
+  private static boolean isStubbable(File file) {
+    String name = file.getName();
+    if (name.endsWith(".css")) return true;
+    if (name.endsWith(".js")) return true;
+    return false;
   }
 
   // HTML Processing ==============================================================================
