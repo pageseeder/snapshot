@@ -1,6 +1,5 @@
 package com.weborganic.snapshot;
 
-import java.io.BufferedInputStream;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
@@ -25,16 +24,18 @@ public class Main {
     if (base == null) {
       usage("Base URL not specified, use -base");
       return;
-//      base = "http://oauthserver.weborganic.org:8099";
+      // base = "http://oauthserver.weborganic.org:8099";
     }
     String load = get(args, "-load");
     if (load == null) {
       usage("Filelist not specified, use -load");
       return;
-//      load = "paths.txt";
+      // load = "paths.txt";
     }
     String dir = get(args, "-o");
-    if (dir == null) dir = new File("snapshot").getAbsolutePath();
+    if (dir == null) {
+      dir = new File("snapshot").getAbsolutePath();
+    }
 
     // Load the list
     List<String> paths = load(load);
@@ -44,6 +45,7 @@ public class Main {
     for (String p : paths) {
       URLFetcher page = new URLFetcher(base + p);
       page.retrieve(spec);
+      page = null; // set to death
     }
 
   }
@@ -67,13 +69,15 @@ public class Main {
    * Returns the single value for the specified option if defined.
    * 
    * @param options the matrix of command line options.
-   * @param name    the name of the requested option.
+   * @param name the name of the requested option.
    * 
    * @return the value if available or <code>null</code>.
    */
   private static String get(String[] args, String name) {
     for (int i = 0; i < args.length; i++) {
-      if (name.equals(args[i]) && i < args.length -1) return args[++i];
+      if (name.equals(args[i]) && i < args.length - 1) {
+        return args[++i];
+      }
     }
     return null;
   }
@@ -90,6 +94,7 @@ public class Main {
       paths.add(path.trim());
       path = reader.readLine();
     }
+    reader.close();
     return paths;
   }
 

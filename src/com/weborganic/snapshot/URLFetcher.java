@@ -56,19 +56,32 @@ public final class URLFetcher {
   public void retrieve(Config config) throws IOException {
     // Create the file
     String path = this._url.getPath();
+    String query = this._url.getQuery();
+
     File file = new File(config.directory(), path);
     if (path.indexOf('.') > 0) {
       file.getParentFile().mkdirs();
     }
 
+    // add query to the filename
+    if (query != null) {
+      StringBuffer filename = new StringBuffer();
+      filename.append(file.getName().substring(0, file.getName().lastIndexOf(".")));
+      for (String q : query.split("&")) {
+        filename.append("{;" + q + "}");
+      }
+      filename.append(file.getName().substring(file.getName().lastIndexOf(".")));
+      file = new File(file.getParent(), filename.toString());
+    }
+
     // No need to process twice
     if (file.exists()) {
-      System.out.println("Skipping "+this._url);
+      System.out.println("Skipping " + this._url);
     }
 
     // Start fetching
-    System.out.print("Fetching "+this._url);
-    HttpURLConnection connection = (HttpURLConnection)this._url.openConnection();
+    System.out.print("Fetching " + this._url);
+    HttpURLConnection connection = (HttpURLConnection) this._url.openConnection();
     connection.setRequestMethod("GET");
     connection.setRequestProperty("User-Agent", "WeborganicSnapshot/1.0");
     connection.connect();
@@ -76,7 +89,7 @@ public final class URLFetcher {
     // Response code
     int code = connection.getResponseCode();
     if (code == 404 && isStubbable(file)) {
-      createStub(file, config);    
+      createStub(file, config);
     } else {
       retrieveContent(connection, file, config, path);
     }
@@ -84,7 +97,7 @@ public final class URLFetcher {
   }
 
   /**
-   * Retrieves the content from the connection. 
+   * Retrieves the content from the connection.
    */
   private void retrieveContent(HttpURLConnection connection, File file, Config config, String path) throws IOException {
     // Grab the metadata
@@ -93,13 +106,13 @@ public final class URLFetcher {
     String encoding = "utf-8";
     int charset = mediaType.indexOf(";charset=");
     if (charset >= 0) {
-      encoding = mediaType.substring(charset+9);
+      encoding = mediaType.substring(charset + 9);
       mediaType = mediaType.substring(0, charset);
     }
     if (service != null) {
-      System.out.println("-> Service:"+service+" as "+mediaType+" ["+encoding+"]");
+      System.out.println("-> Service:" + service + " as " + mediaType + " [" + encoding + "]");
     } else {
-      System.out.println("-> "+mediaType+" ["+encoding+"]");
+      System.out.println("-> " + mediaType + " [" + encoding + "]");
     }
 
     // Grab the content
@@ -133,7 +146,7 @@ public final class URLFetcher {
   }
 
   /**
-   * Retrieves the content from the connection. 
+   * Retrieves the content from the connection.
    */
   private void createStub(File file, Config config) throws IOException {
     String name = file.getName();
@@ -158,13 +171,15 @@ public final class URLFetcher {
   /**
    * Retrieves the specified URL for the given config.
    * 
-   * <p>Same as:
+   * <p>
+   * Same as:
+   * 
    * <pre>
-   *  URLFetcher linkEnd = new URLFetcher(url);
-   *  linkEnd.retrieve(config);
+   * URLFetcher linkEnd = new URLFetcher(url);
+   * linkEnd.retrieve(config);
    * </pre>
    * 
-   * @param url    The URL to retrieve.
+   * @param url The URL to retrieve.
    * @param config The SnapShot config.
    * 
    * @throws IOException In case of an unrecoverable and unexpected I/O or network error.
@@ -177,13 +192,16 @@ public final class URLFetcher {
   /**
    * Indicates whether a stub can be created (for example for JavaScript or CSS).
    * 
-   * @return <code>true</code> if it can;
-   *         <code>false</code> otherwise.
+   * @return <code>true</code> if it can; <code>false</code> otherwise.
    */
   private static boolean isStubbable(File file) {
     String name = file.getName();
-    if (name.endsWith(".css")) return true;
-    if (name.endsWith(".js")) return true;
+    if (name.endsWith(".css")) {
+      return true;
+    }
+    if (name.endsWith(".js")) {
+      return true;
+    }
     return false;
   }
 
@@ -192,11 +210,12 @@ public final class URLFetcher {
   /**
    * Process HTML content.
    * 
-   * <p>This method rewrites tags and fetches associated resources.
+   * <p>
+   * This method rewrites tags and fetches associated resources.
    * 
    * @param content The entire HTML content.
-   * @param config  The snapshot configuration.
-   * @param origin  The path to this HTML file.
+   * @param config The snapshot configuration.
+   * @param origin The path to this HTML file.
    * 
    * @return The rewritten content.
    * 
@@ -216,9 +235,10 @@ public final class URLFetcher {
   /**
    * Process an HTML linked item (image, script, styles, etc...)
    * 
-   * <p>This method rewrites, but does not follow regular links.
+   * <p>
+   * This method rewrites, but does not follow regular links.
    * 
-   * @param tag    The complete matching tag (opening element).
+   * @param tag The complete matching tag (opening element).
    * @param config The snapshot configuration.
    * @param origin The path to HTML file.
    * 
@@ -238,10 +258,10 @@ public final class URLFetcher {
       if (location.startsWith("/")) {
         // Fetch images, scripts and styles (but do not follow links <a>)
         if (!tag.startsWith("<a ")) {
-          URLFetcher.retrieve(config.baseURL()+location, config);
+          URLFetcher.retrieve(config.baseURL() + location, config);
         }
         // Rewrite the absolute paths
-        m.appendReplacement(html, type+"=\""+toRelativePath(origin, location)+"\"");
+        m.appendReplacement(html, type + "=\"" + toRelativePath(origin, location) + "\"");
 
       } else if (location.startsWith("http://")
           || location.startsWith("https://")
@@ -250,13 +270,13 @@ public final class URLFetcher {
         m.appendReplacement(html, m.group());
 
       } else {
-        String parent = origin.indexOf('/') >= 0? origin.substring(0, origin.lastIndexOf('/'))+"/" : "/";
+        String parent = origin.indexOf('/') >= 0 ? origin.substring(0, origin.lastIndexOf('/')) + "/" : "/";
         // Fetch images, scripts and styles (but do not follow links <a>)
         if (!tag.startsWith("<a ")) {
-          URLFetcher.retrieve(config.baseURL()+parent+location, config);
+          URLFetcher.retrieve(config.baseURL() + parent + location, config);
         }
         // Rewrite relative paths
-        m.appendReplacement(html, type+"=\""+toRelativePath(origin, parent+location)+"\"");
+        m.appendReplacement(html, type + "=\"" + toRelativePath(origin, parent + location) + "\"");
       }
     }
     m.appendTail(html);
@@ -268,12 +288,13 @@ public final class URLFetcher {
   /**
    * Process CSS content.
    * 
-   * <p>This method will rewrite <code>url()</code> references.
+   * <p>
+   * This method will rewrite <code>url()</code> references.
    * 
    * @param content The CSS content
-   * @param config  The snapshot configuration.
-   * @param origin  The path to the CSS file.
-   *
+   * @param config The snapshot configuration.
+   * @param origin The path to the CSS file.
+   * 
    * @return the updated CSS content.
    * 
    * @throws IOException In case of an unrecoverable and unexpected I/O or network error.
@@ -282,7 +303,9 @@ public final class URLFetcher {
     StringBuffer css = null;
     Matcher m = URLS.matcher(content);
     while (m.find()) {
-      if (css == null) css = new StringBuffer();
+      if (css == null) {
+        css = new StringBuffer();
+      }
       m.appendReplacement(css, processUrl(m.group(), config, origin));
     }
     if (css != null) {
@@ -296,7 +319,7 @@ public final class URLFetcher {
   /**
    * Process a linked item in a CSS file (most likely an image or another CSS)
    * 
-   * @param link   The complete matching tag.
+   * @param link The complete matching tag.
    * @param config The snapshot configuration.
    * @param origin The path to the CSS file.
    * 
@@ -313,8 +336,8 @@ public final class URLFetcher {
       location = unquote(location);
       // Rewrite the absolute paths
       if (location.startsWith("/")) {
-        URLFetcher.retrieve(config.baseURL()+location, config);
-        m.appendReplacement(css, "url("+toRelativePath(origin, location)+")");
+        URLFetcher.retrieve(config.baseURL() + location, config);
+        m.appendReplacement(css, "url(" + toRelativePath(origin, location) + ")");
 
         // Ignore full path and internal links
       } else if (location.startsWith("http://")
@@ -324,9 +347,9 @@ public final class URLFetcher {
 
         // Rewrite relative paths
       } else {
-        String parent = origin.indexOf('/') >= 0? origin.substring(0, origin.lastIndexOf('/'))+"/" : "/";
-        URLFetcher.retrieve(config.baseURL()+parent+location, config);
-        m.appendReplacement(css, "url("+toRelativePath(origin, parent+location)+")");
+        String parent = origin.indexOf('/') >= 0 ? origin.substring(0, origin.lastIndexOf('/')) + "/" : "/";
+        URLFetcher.retrieve(config.baseURL() + parent + location, config);
+        m.appendReplacement(css, "url(" + toRelativePath(origin, parent + location) + ")");
       }
     }
     m.appendTail(css);
@@ -349,7 +372,7 @@ public final class URLFetcher {
     int start = 0;
     while (origin.indexOf('/', start) > 0) {
       path.append("../");
-      start = origin.indexOf('/', start)+1;
+      start = origin.indexOf('/', start) + 1;
     }
     path.append(target);
     return path.toString();
@@ -365,9 +388,10 @@ public final class URLFetcher {
     String unquoted = s;
     if (s.length() > 2) {
       char first = s.charAt(0);
-      char last = s.charAt(s.length()-1);
-      if (first == last && (first =='\'' || first == '"'))
-        unquoted = s.substring(1, s.length()-1);
+      char last = s.charAt(s.length() - 1);
+      if (first == last && (first == '\'' || first == '"')) {
+        unquoted = s.substring(1, s.length() - 1);
+      }
     }
     return unquoted;
   }
