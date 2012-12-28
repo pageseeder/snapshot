@@ -14,7 +14,7 @@ import java.util.regex.Pattern;
 
 /**
  * Retrieves the page from the Website and its associated resources.
- * 
+ *
  * @author Christophe Lauret
  * @version 26 July 2011
  */
@@ -23,7 +23,7 @@ public final class URLFetcher {
   /**
    * The URL to retrieve.
    */
-  private final URL _url;
+  private final Resource _resource;
 
   /**
    * Stylesheets, scripts, images and regular links.
@@ -37,28 +37,37 @@ public final class URLFetcher {
 
   /**
    * Creates a new Page for the specified URL
-   * 
+   *
    * @param url The URL of the page
-   * 
+   *
    * @throws MalformedURLException If the URL is not valid.
    */
-  public URLFetcher(String url) throws MalformedURLException {
-    this._url = new URL(url);
+  public URLFetcher(Resource resource) throws MalformedURLException {
+    this._resource = resource;
   }
 
   /**
    * Retrieves resource corresponding to this URL and other associated resources (links, images, etc...)
-   * 
+   *
    * @param config The snapshot configuration.
-   * 
+   *
    * @throws IOException In case of an unrecoverable and unexpected I/O or network error.
    */
   public void retrieve(Config config) throws IOException {
+    URL url = new URL(config.baseURL() + this._resource.path(config.getJSession()));
     // Create the file
-    String path = this._url.getPath();
-    String query = this._url.getQuery();
+    String path = url.getPath();
+    String query = url.getQuery();
 
-    File file = new File(config.directory(), path);
+    String cleanpath = path;
+    if (path.indexOf(";jsessionid") > 0) {
+      String ext = getExtension(this._resource.path());
+      cleanpath = path.substring(0, path.indexOf(";jsessionid"));
+//      if (!(ext.equals("css") || ext.equals("js") || ext.equals("png") || ext.equals("gif") || ext.equals("jpg"))) {
+//        cleanpath = cleanpath + ";auth";
+//      }
+    }
+    File file = new File(config.directory(), cleanpath);
     if (path.indexOf('.') > 0) {
       file.getParentFile().mkdirs();
     }
@@ -68,7 +77,9 @@ public final class URLFetcher {
       StringBuffer filename = new StringBuffer();
       filename.append(file.getName().substring(0, file.getName().lastIndexOf(".")));
       for (String q : query.split("&")) {
-        filename.append("{;" + q + "}");
+        // Ignore berlioz parameters (reload and bundle)
+        if (!q.startsWith("berlioz-"))
+          filename.append("{;" + q + "}");
       }
       filename.append(file.getName().substring(file.getName().lastIndexOf(".")));
       file = new File(file.getParent(), filename.toString());
@@ -76,12 +87,12 @@ public final class URLFetcher {
 
     // No need to process twice
     if (file.exists()) {
-      System.out.println("Skipping " + this._url);
+      System.out.println("Skipping " + url);
     }
 
     // Start fetching
-    System.out.print("Fetching " + this._url);
-    HttpURLConnection connection = (HttpURLConnection) this._url.openConnection();
+    System.out.print("Fetching " + url);
+    HttpURLConnection connection = (HttpURLConnection) url.openConnection();
     connection.setRequestMethod("GET");
     connection.setRequestProperty("User-Agent", "WeborganicSnapshot/1.0");
     connection.connect();
@@ -170,28 +181,28 @@ public final class URLFetcher {
 
   /**
    * Retrieves the specified URL for the given config.
-   * 
+   *
    * <p>
    * Same as:
-   * 
+   *
    * <pre>
    * URLFetcher linkEnd = new URLFetcher(url);
    * linkEnd.retrieve(config);
    * </pre>
-   * 
+   *
    * @param url The URL to retrieve.
    * @param config The SnapShot config.
-   * 
+   *
    * @throws IOException In case of an unrecoverable and unexpected I/O or network error.
    */
-  public static void retrieve(String url, Config config) throws IOException {
-    URLFetcher linkEnd = new URLFetcher(url);
+  public static void retrieve(String path, Config config) throws IOException {
+    URLFetcher linkEnd = new URLFetcher(new Resource(path, "GET"));
     linkEnd.retrieve(config);
   }
 
   /**
    * Indicates whether a stub can be created (for example for JavaScript or CSS).
-   * 
+   *
    * @return <code>true</code> if it can; <code>false</code> otherwise.
    */
   private static boolean isStubbable(File file) {
@@ -209,16 +220,16 @@ public final class URLFetcher {
 
   /**
    * Process HTML content.
-   * 
+   *
    * <p>
    * This method rewrites tags and fetches associated resources.
-   * 
+   *
    * @param content The entire HTML content.
    * @param config The snapshot configuration.
    * @param origin The path to this HTML file.
-   * 
+   *
    * @return The rewritten content.
-   * 
+   *
    * @throws IOException In case of an unrecoverable and unexpected I/O or network error.
    */
   private String processHTML(String content, Config config, String origin) throws IOException {
@@ -234,16 +245,16 @@ public final class URLFetcher {
 
   /**
    * Process an HTML linked item (image, script, styles, etc...)
-   * 
+   *
    * <p>
    * This method rewrites, but does not follow regular links.
-   * 
+   *
    * @param tag The complete matching tag (opening element).
    * @param config The snapshot configuration.
    * @param origin The path to HTML file.
-   * 
+   *
    * @return The rewritten tag
-   * 
+   *
    * @throws IOException In case of an unrecoverable and unexpected I/O or network error.
    */
   private String processLink(String tag, Config config, String origin) throws IOException {
@@ -258,7 +269,7 @@ public final class URLFetcher {
       if (location.startsWith("/")) {
         // Fetch images, scripts and styles (but do not follow links <a>)
         if (!tag.startsWith("<a ")) {
-          URLFetcher.retrieve(config.baseURL() + location, config);
+          URLFetcher.retrieve(location, config);
         }
         // Rewrite the absolute paths
         m.appendReplacement(html, type + "=\"" + toRelativePath(origin, location) + "\"");
@@ -273,7 +284,7 @@ public final class URLFetcher {
         String parent = origin.indexOf('/') >= 0 ? origin.substring(0, origin.lastIndexOf('/')) + "/" : "/";
         // Fetch images, scripts and styles (but do not follow links <a>)
         if (!tag.startsWith("<a ")) {
-          URLFetcher.retrieve(config.baseURL() + parent + location, config);
+          URLFetcher.retrieve(parent + location, config);
         }
         // Rewrite relative paths
         m.appendReplacement(html, type + "=\"" + toRelativePath(origin, parent + location) + "\"");
@@ -287,16 +298,16 @@ public final class URLFetcher {
 
   /**
    * Process CSS content.
-   * 
+   *
    * <p>
    * This method will rewrite <code>url()</code> references.
-   * 
+   *
    * @param content The CSS content
    * @param config The snapshot configuration.
    * @param origin The path to the CSS file.
-   * 
+   *
    * @return the updated CSS content.
-   * 
+   *
    * @throws IOException In case of an unrecoverable and unexpected I/O or network error.
    */
   String processCSS(String content, Config config, String origin) throws IOException {
@@ -318,13 +329,13 @@ public final class URLFetcher {
 
   /**
    * Process a linked item in a CSS file (most likely an image or another CSS)
-   * 
+   *
    * @param link The complete matching tag.
    * @param config The snapshot configuration.
    * @param origin The path to the CSS file.
-   * 
+   *
    * @return The rewritten link
-   * 
+   *
    * @throws IOException In case of an unrecoverable and unexpected I/O or network error.
    */
   String processUrl(String link, Config config, String origin) throws IOException {
@@ -336,7 +347,7 @@ public final class URLFetcher {
       location = unquote(location);
       // Rewrite the absolute paths
       if (location.startsWith("/")) {
-        URLFetcher.retrieve(config.baseURL() + location, config);
+        URLFetcher.retrieve(location, config);
         m.appendReplacement(css, "url(" + toRelativePath(origin, location) + ")");
 
         // Ignore full path and internal links
@@ -348,7 +359,7 @@ public final class URLFetcher {
         // Rewrite relative paths
       } else {
         String parent = origin.indexOf('/') >= 0 ? origin.substring(0, origin.lastIndexOf('/')) + "/" : "/";
-        URLFetcher.retrieve(config.baseURL() + parent + location, config);
+        URLFetcher.retrieve(parent + location, config);
         m.appendReplacement(css, "url(" + toRelativePath(origin, parent + location) + ")");
       }
     }
@@ -358,10 +369,10 @@ public final class URLFetcher {
 
   /**
    * Compute the relative path from the specified origin to the specified target.
-   * 
+   *
    * @param origin The path to the origin.
    * @param target The path to the target.
-   * 
+   *
    * @return the relative path.
    */
   public static String toRelativePath(String origin, String target) {
@@ -380,7 +391,7 @@ public final class URLFetcher {
 
   /**
    * Removes the quotes from the string if needed.
-   * 
+   *
    * @param s The string to unquote
    * @return the unquoted string
    */
@@ -394,6 +405,15 @@ public final class URLFetcher {
       }
     }
     return unquoted;
+  }
+
+
+  /**
+   *
+   */
+  public static String getExtension(String path) {
+    int dot = path.lastIndexOf('.');
+    return dot != -1? path.substring(dot+1) : "";
   }
 
 }

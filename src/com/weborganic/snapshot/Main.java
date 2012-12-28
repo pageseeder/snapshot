@@ -10,7 +10,7 @@ import java.util.List;
 
 /**
  * Makes a snapshot of a Berlioz Application
- * 
+ *
  * @author Christophe Lauret
  * @version 26 July 2011
  */
@@ -21,29 +21,36 @@ public class Main {
 
   public static void main(String[] args) throws IOException {
     String base = get(args, "-base");
+    base = "http://dev.pageseeder.com";
     if (base == null) {
       usage("Base URL not specified, use -base");
       return;
-      // base = "http://oauthserver.weborganic.org:8099";
     }
     String load = get(args, "-load");
+    load = "test/paths.txt";
     if (load == null) {
       usage("Filelist not specified, use -load");
       return;
-      // load = "paths.txt";
     }
+    // Optional jsession ID
+    String jsessionid = get(args, "-jsessionid");
+    jsessionid= "1e0rpbr0nwlye1mpaw57aeq47q";
+
     String dir = get(args, "-o");
     if (dir == null) {
       dir = new File("snapshot").getAbsolutePath();
     }
 
     // Load the list
-    List<String> paths = load(load);
+    List<Resource> resources = load(load);
     Config spec = new Config(base, dir);
+    if (jsessionid != null) {
+      spec.setJSession(jsessionid);
+    }
 
     // Iterate over
-    for (String p : paths) {
-      URLFetcher page = new URLFetcher(base + p);
+    for (Resource r : resources) {
+      URLFetcher page = new URLFetcher(r);
       page.retrieve(spec);
       page = null; // set to death
     }
@@ -52,7 +59,7 @@ public class Main {
 
   /**
    * Displays the usage of this class on System.err.
-   * 
+   *
    * @param message Any message (optional)
    */
   public static void usage(String message) {
@@ -67,10 +74,10 @@ public class Main {
 
   /**
    * Returns the single value for the specified option if defined.
-   * 
+   *
    * @param options the matrix of command line options.
    * @param name the name of the requested option.
-   * 
+   *
    * @return the value if available or <code>null</code>.
    */
   private static String get(String[] args, String name) {
@@ -83,16 +90,24 @@ public class Main {
   }
 
   /**
-   * 
+   * Loads the configuration file
+   *
    * @param file
    */
-  private static List<String> load(String file) throws IOException {
-    List<String> paths = new ArrayList<String>();
+  private static List<Resource> load(String file) throws IOException {
+    List<Resource> paths = new ArrayList<Resource>();
     BufferedReader reader = new BufferedReader(new InputStreamReader(new FileInputStream(file)));
-    String path = reader.readLine();
-    while (path != null) {
-      paths.add(path.trim());
-      path = reader.readLine();
+    String info = reader.readLine();
+    while (info != null) {
+      String resource = info.trim();
+      if (resource.length() > 0 && resource.indexOf('#') != 0) {
+        int s = resource.lastIndexOf(' ');
+        String path = resource.substring(0, s);
+        String method = resource.substring(s+1);
+        Resource r = new Resource(path, method);
+        paths.add(r);
+      }
+      info = reader.readLine();
     }
     reader.close();
     return paths;
