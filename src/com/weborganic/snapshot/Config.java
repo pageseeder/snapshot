@@ -1,16 +1,31 @@
 package com.weborganic.snapshot;
 
 /**
+ * The configuration for snapshot.
  *
+ * @author Christophe Lauret
+ * @version 28 December 2012
  */
 public final class Config {
 
+  /**
+   * The base URL ([scheme]://[host])
+   */
   private final String _baseurl;
 
+  /**
+   * The base directory where files are stored.
+   */
   private final String _basedir;
 
+  /**
+   * The encoding to read the files.
+   */
   private final String _encoding;
 
+  /**
+   * The jsession ID (optional)
+   */
   private String _jsession;
 
 

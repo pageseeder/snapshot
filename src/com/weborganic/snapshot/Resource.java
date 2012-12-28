@@ -6,7 +6,7 @@ package com.weborganic.snapshot;
  * @author Christophe Lauret
  * @version 28 December 2012
  */
-public class Resource {
+public final class Resource {
 
   /**
    * The path to the resource.
@@ -29,15 +29,17 @@ public class Resource {
   }
 
   /**
-   * @return The URL to get that resource.
+   * @return The path to the resource.
    */
   public String path() {
     return this._path;
   }
 
   /**
-   * @param jsessionid
-   * @return The URL to get that resource with the following jsession attached.
+   * Returns the path inserting the JSession ID.
+   *
+   * @param jsessionid The jsession ID to insert
+   * @return The path to the resource with the following jsession attached.
    */
   public String path(String jsessionid) {
     int q = this._path.indexOf('?');

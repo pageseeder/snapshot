@@ -21,20 +21,20 @@ public class Main {
 
   public static void main(String[] args) throws IOException {
     String base = get(args, "-base");
-    base = "http://dev.pageseeder.com";
+//    base = "http://dev.pageseeder.com";
     if (base == null) {
       usage("Base URL not specified, use -base");
       return;
     }
     String load = get(args, "-load");
-    load = "test/paths.txt";
+//    load = "test/paths.txt";
     if (load == null) {
       usage("Filelist not specified, use -load");
       return;
     }
     // Optional jsession ID
     String jsessionid = get(args, "-jsessionid");
-    jsessionid= "1e0rpbr0nwlye1mpaw57aeq47q";
+//    jsessionid= "1e0rpbr0nwlye1mpaw57aeq47q";
 
     String dir = get(args, "-o");
     if (dir == null) {
@@ -102,9 +102,14 @@ public class Main {
       String resource = info.trim();
       if (resource.length() > 0 && resource.indexOf('#') != 0) {
         int s = resource.lastIndexOf(' ');
-        String path = resource.substring(0, s);
-        String method = resource.substring(s+1);
-        Resource r = new Resource(path, method);
+        Resource r;
+        if (s > 0) {
+          String path = resource.substring(0, s);
+          String method = resource.substring(s+1);
+          r = new Resource(path, method);
+        } else {
+          r = new Resource(resource, "GET");
+        }
         paths.add(r);
       }
       info = reader.readLine();
