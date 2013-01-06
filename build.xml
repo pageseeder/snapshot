@@ -26,14 +26,11 @@
   <!-- other properties -->
   <loadfile property="version" srcfile="version.txt" description="Version to build"/>
 
-  <!-- Loads the Ivy properties. -->
-  <loadproperties srcFile="ivy.properties"/>
-
   <!-- initialise -->
   <target name="init">
     <tstamp/>
     <mkdir dir="${dir.bin}"/>
-    <ivy:settings url="${ivy.settings.url}"/>
+    <ivy:settings url="http://ivy.pageseeder.com/settings/ivysettings.xml"/>
   </target>
 
   <!-- compile the java code from ${src} into ${classes} -->
@@ -84,16 +81,16 @@
     <path id="required.lib">
       <fileset dir="${dir.lib}" includes="*.jar"/>
     </path>
-    <javadoc destdir="${dir.doc}" access="public" 
-                                  use="true" 
-                                  notree="false" 
-                                  nonavbar="false" 
-                                  noindex="false" 
-                                  splitindex="true" 
-                                  author="true" version="true" 
-                                  nodeprecatedlist="false" 
-                                  nodeprecated="false" 
-                                  packagenames="${package.names}" 
+    <javadoc destdir="${dir.doc}" access="public"
+                                  use="true"
+                                  notree="false"
+                                  nonavbar="false"
+                                  noindex="false"
+                                  splitindex="true"
+                                  author="true" version="true"
+                                  nodeprecatedlist="false"
+                                  nodeprecated="false"
+                                  packagenames="${package.names}"
                                   sourcepath="${dir.src}"
                                   stylesheetfile="${dir.resource}/javadoc.css"
                                   doctitle="${name.display} ${version} API">
@@ -109,7 +106,7 @@
     <delete dir="${dir.bin}"/>
   </target>
 
-  <!-- 
+  <!--
     Publish the build on the Ivy, must specify
     - publish.status    ('milestone' or 'integration')
     - publish.resolver  ('shared' or 'local')
@@ -140,7 +137,7 @@
     <ivy:resolve revision="${publish.revision}" log="quiet"/>
     <ivy:publish resolver="${publish.resolver}"
                  module="${name.short}"
-                 artifactspattern="release/${DSTAMP}/[artifact]-[revision].[ext]" 
+                 artifactspattern="release/${DSTAMP}/[artifact]-[revision].[ext]"
                  revision="${publish.revision}"
                  status="${publish.status}"/>
     <echo message="Published ${publish.status} release as ${publish.revision}"/>
