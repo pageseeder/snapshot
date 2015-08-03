@@ -36,21 +36,18 @@ public class Main {
 
   public static void main(String[] args) throws IOException {
     String base = get(args, "-base");
-//    base = "http://dev.pageseeder.com";
     if (base == null) {
       usage("Base URL not specified, use -base");
       return;
     }
     String load = get(args, "-load");
-//    load = "test/paths.txt";
     if (load == null) {
       usage("Filelist not specified, use -load");
       return;
     }
+
     // Optional jsession ID
     String jsessionid = get(args, "-jsessionid");
-//    jsessionid= "1e0rpbr0nwlye1mpaw57aeq47q";
-
     String dir = get(args, "-o");
     if (dir == null) {
       dir = new File("snapshot").getAbsolutePath();
