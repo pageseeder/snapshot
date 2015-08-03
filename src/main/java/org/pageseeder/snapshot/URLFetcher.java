@@ -1,4 +1,19 @@
-package com.weborganic.snapshot;
+/*
+ * Copyright 2010-2015 Allette Systems (Australia)
+ * http://www.allette.com.au
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.pageseeder.snapshot;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -78,8 +93,9 @@ public final class URLFetcher {
       filename.append(file.getName().substring(0, file.getName().lastIndexOf(".")));
       for (String q : query.split("&")) {
         // Ignore berlioz parameters (reload and bundle)
-        if (!q.startsWith("berlioz-"))
+        if (!q.startsWith("berlioz-")) {
           filename.append("{;" + q + "}");
+        }
       }
       filename.append(file.getName().substring(file.getName().lastIndexOf(".")));
       file = new File(file.getParent(), filename.toString());
@@ -207,12 +223,8 @@ public final class URLFetcher {
    */
   private static boolean isStubbable(File file) {
     String name = file.getName();
-    if (name.endsWith(".css")) {
-      return true;
-    }
-    if (name.endsWith(".js")) {
-      return true;
-    }
+    if (name.endsWith(".css")) return true;
+    if (name.endsWith(".js")) return true;
     return false;
   }
 
@@ -322,9 +334,7 @@ public final class URLFetcher {
     if (css != null) {
       m.appendTail(css);
       return css.toString();
-    } else {
-      return content;
-    }
+    } else return content;
   }
 
   /**
@@ -376,9 +386,7 @@ public final class URLFetcher {
    * @return the relative path.
    */
   public static String toRelativePath(String origin, String target) {
-    if (origin.startsWith("/") && target.startsWith("/")) {
-      return toRelativePath(origin.substring(1), target.substring(1));
-    }
+    if (origin.startsWith("/") && target.startsWith("/")) return toRelativePath(origin.substring(1), target.substring(1));
     StringBuilder path = new StringBuilder();
     int start = 0;
     while (origin.indexOf('/', start) > 0) {

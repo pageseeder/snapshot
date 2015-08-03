@@ -1,5 +1,0 @@
-
-syntax: regexp
-^release$
-syntax: regexp
-^ivy\.properties$
