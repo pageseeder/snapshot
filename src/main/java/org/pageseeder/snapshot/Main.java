@@ -78,8 +78,10 @@ public class Main {
     if (message != null) {
       System.err.println(message);
     }
+    Package p = Package.getPackage("org.pageseeder.snapshot");
+    String version = p != null ? p.getImplementationVersion() : "unknown";
     System.err.println("Snapshot");
-    System.err.println("Usage: java -jar wi-snapshot.jar");
+    System.err.println("Usage: java -jar pso-snapshot-"+version+".jar");
     System.err.println("Options");
     System.err.println("  -load [filelist] -base [baseurl] -o [outputdir]");
   }
