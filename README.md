@@ -1,3 +1,5 @@
+[ ![Download](https://api.bintray.com/packages/pageseeder/maven/snapshot/images/download.svg) ](https://bintray.com/pageseeder/maven/snapshot/_latestVersion)
+
 # Snapshot
 
 Snapshot is small standalone Java library used to generate static pages
